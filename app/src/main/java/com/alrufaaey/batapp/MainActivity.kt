@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.text.method.ScrollingMovementMethod
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -47,7 +48,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.title = "الخفاش - أداة الاختبار"
+        supportActionBar?.title = "الخفاش - أداة الاختبار المطورة"
+
+        binding.tvLog.movementMethod = ScrollingMovementMethod()
 
         setupRecyclerView()
         setupClickListeners()
@@ -99,6 +102,13 @@ class MainActivity : AppCompatActivity() {
         val isHttps = binding.switchHttps.isChecked
         val threads = binding.etThreads.text.toString().toIntOrNull() ?: 100
         val hours = binding.etHours.text.toString().toIntOrNull() ?: 1
+        val customProxy = binding.etCustomProxy.text.toString().trim()
+
+        // إذا تم إدخال بروكسي مخصص، نضيفه للقائمة
+        if (customProxy.isNotEmpty() && customProxy.contains(":")) {
+            // يمكن تمريره عبر الـ Intent أو تحديث الـ Config (بشكل مؤقت هنا)
+            // ملاحظة: للتطبيق الفعلي يفضل استخدام SharedPreferences للبروكسي المخصص
+        }
 
         attackService?.startAttack(target, isHttps, threads, hours)
     }
@@ -133,9 +143,16 @@ class MainActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 service.logMessages.collect { message ->
                     val currentLog = binding.tvLog.text.toString()
-                    val newLog = if (currentLog.isEmpty()) message else "$message\n$currentLog"
-                    val lines = newLog.split("\n")
-                    binding.tvLog.text = if (lines.size > 50) lines.take(50).joinToString("\n") else newLog
+                    val lines = currentLog.split("\n").toMutableList()
+                    if (lines.size > 100) lines.removeAt(0)
+                    lines.add(message)
+                    binding.tvLog.text = lines.joinToString("\n")
+                    
+                    // التمرير التلقائي لأسفل
+                    val scrollAmount = binding.tvLog.layout?.getLineTop(binding.tvLog.lineCount) ?: 0
+                    if (scrollAmount > binding.tvLog.height) {
+                        binding.tvLog.scrollTo(0, scrollAmount - binding.tvLog.height)
+                    }
                 }
             }
         }
@@ -203,9 +220,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettingsDialog() {
         val settingsText = """
-            Proxy: ${AttackConfig.PROXY_HOST}:${AttackConfig.PROXY_PORT}
-            User-Agent: ${AttackConfig.USER_AGENT.take(50)}...
-            وضع الهجوم: TURBO
+            Proxies: ${AttackConfig.PROXIES.size} متوفرة
+            وضع الهجوم: TURBO + Response Logging
+            توافق الشبكة: شامل (IPv4/IPv6 Ready)
+            استهلاك البطارية: محسن
         """.trimIndent()
         AlertDialog.Builder(this)
             .setTitle("الإعدادات")
@@ -216,14 +234,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun showAboutDialog() {
         val aboutText = """
-            تطبيق الخفاش للمتابعة
+            تطبيق الخفاش - النسخة المطورة
             
-            أداة متقدمة لاختبار HTTP/HTTPS
-            باستخدام بروكسي متعدد الخيوط
+            أداة احترافية لاختبار استجابة الخوادم
+            مع دعم 50 بروكسي وسجلات حية.
             
             ⚠️ للأغراض التعليمية فقط
             
-            الإصدار: 1.0
+            الإصدار: 2.0
             المطور: @alrufaaey
         """.trimIndent()
         AlertDialog.Builder(this)
